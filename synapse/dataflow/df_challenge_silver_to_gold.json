@@ -1,0 +1,166 @@
+{
+	"name": "df_challenge_silver_to_gold",
+	"properties": {
+		"type": "MappingDataFlow",
+		"typeProperties": {
+			"sources": [
+				{
+					"dataset": {
+						"referenceName": "ds_adls_bronze_xlsx",
+						"type": "DatasetReference"
+					},
+					"name": "employeesBronze"
+				},
+				{
+					"dataset": {
+						"referenceName": "ds_adls_bronze_xlsx",
+						"type": "DatasetReference"
+					},
+					"name": "departmentsBronze"
+				},
+				{
+					"dataset": {
+						"referenceName": "ds_adls_bronze_xlsx",
+						"type": "DatasetReference"
+					},
+					"name": "jobsBronze"
+				}
+			],
+			"sinks": [
+				{
+					"dataset": {
+						"referenceName": "ds_adls_silver_parquet",
+						"type": "DatasetReference"
+					},
+					"name": "employeesSilver",
+					"rejectedDataLinkedService": {
+						"referenceName": "onb-demo-synapse-analytics-WorkspaceDefaultStorage",
+						"type": "LinkedServiceReference"
+					}
+				},
+				{
+					"dataset": {
+						"referenceName": "ds_adls_silver_parquet",
+						"type": "DatasetReference"
+					},
+					"name": "departmentsSilver",
+					"rejectedDataLinkedService": {
+						"referenceName": "onb-demo-synapse-analytics-WorkspaceDefaultStorage",
+						"type": "LinkedServiceReference"
+					}
+				},
+				{
+					"dataset": {
+						"referenceName": "ds_adls_silver_parquet",
+						"type": "DatasetReference"
+					},
+					"name": "jobsSilver",
+					"rejectedDataLinkedService": {
+						"referenceName": "onb-demo-synapse-analytics-WorkspaceDefaultStorage",
+						"type": "LinkedServiceReference"
+					}
+				}
+			],
+			"transformations": [
+				{
+					"name": "SetColumnNamesEmployees"
+				},
+				{
+					"name": "SetNullValuesEmployees"
+				},
+				{
+					"name": "SetColumnNamesDepartments"
+				},
+				{
+					"name": "SetNullValuesDepartments"
+				},
+				{
+					"name": "SetColumnNamesJobs"
+				},
+				{
+					"name": "SetNullValuesJobs"
+				}
+			],
+			"scriptLines": [
+				"source(output(",
+				"          {_col0_} as integer,",
+				"          {_col1_} as string,",
+				"          {_col2_} as string,",
+				"          {_col3_} as integer,",
+				"          {_col4_} as integer",
+				"     ),",
+				"     allowSchemaDrift: true,",
+				"     validateSchema: false,",
+				"     ignoreNoFilesFound: false) ~> employeesBronze",
+				"source(output(",
+				"          {_col0_} as integer,",
+				"          {_col1_} as string",
+				"     ),",
+				"     allowSchemaDrift: true,",
+				"     validateSchema: false,",
+				"     ignoreNoFilesFound: false) ~> departmentsBronze",
+				"source(output(",
+				"          {_col0_} as integer,",
+				"          {_col1_} as string",
+				"     ),",
+				"     allowSchemaDrift: true,",
+				"     validateSchema: false,",
+				"     ignoreNoFilesFound: false) ~> jobsBronze",
+				"employeesBronze select(mapColumn(",
+				"          id = {_col0_},",
+				"          name = {_col1_},",
+				"          datetime = {_col2_},",
+				"          department_id = {_col3_},",
+				"          job_id = {_col4_}",
+				"     ),",
+				"     skipDuplicateMapInputs: true,",
+				"     skipDuplicateMapOutputs: true) ~> SetColumnNamesEmployees",
+				"SetColumnNamesEmployees derive(name = coalesce(name, 'NOT_DEFINED'),",
+				"          datetime = coalesce(datetime, '0000-00-00T00:00:00Z'),",
+				"          department_id = coalesce(department_id, -1),",
+				"          job_id = coalesce(job_id, -1)) ~> SetNullValuesEmployees",
+				"departmentsBronze select(mapColumn(",
+				"          id = {_col0_},",
+				"          department = {_col1_}",
+				"     ),",
+				"     skipDuplicateMapInputs: true,",
+				"     skipDuplicateMapOutputs: true) ~> SetColumnNamesDepartments",
+				"SetColumnNamesDepartments derive(department = coalesce(department, 'NOT_DEFINED')) ~> SetNullValuesDepartments",
+				"jobsBronze select(mapColumn(",
+				"          id = {_col0_},",
+				"          job = {_col1_}",
+				"     ),",
+				"     skipDuplicateMapInputs: true,",
+				"     skipDuplicateMapOutputs: true) ~> SetColumnNamesJobs",
+				"SetColumnNamesJobs derive(job = coalesce(job, 'NOT_DEFINED')) ~> SetNullValuesJobs",
+				"SetNullValuesEmployees sink(allowSchemaDrift: true,",
+				"     validateSchema: false,",
+				"     format: 'parquet',",
+				"     truncate: true,",
+				"     umask: 0022,",
+				"     preCommands: [],",
+				"     postCommands: [],",
+				"     skipDuplicateMapInputs: true,",
+				"     skipDuplicateMapOutputs: true) ~> employeesSilver",
+				"SetNullValuesDepartments sink(allowSchemaDrift: true,",
+				"     validateSchema: false,",
+				"     format: 'parquet',",
+				"     truncate: true,",
+				"     umask: 0022,",
+				"     preCommands: [],",
+				"     postCommands: [],",
+				"     skipDuplicateMapInputs: true,",
+				"     skipDuplicateMapOutputs: true) ~> departmentsSilver",
+				"SetNullValuesJobs sink(allowSchemaDrift: true,",
+				"     validateSchema: false,",
+				"     format: 'parquet',",
+				"     truncate: true,",
+				"     umask: 0022,",
+				"     preCommands: [],",
+				"     postCommands: [],",
+				"     skipDuplicateMapInputs: true,",
+				"     skipDuplicateMapOutputs: true) ~> jobsSilver"
+			]
+		}
+	}
+}

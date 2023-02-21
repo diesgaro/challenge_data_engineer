@@ -1,0 +1,119 @@
+{
+	"name": "mstr_challenge",
+	"properties": {
+		"activities": [
+			{
+				"name": "Challenge Bronze to Silver",
+				"type": "ExecuteDataFlow",
+				"dependsOn": [],
+				"policy": {
+					"timeout": "0.12:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"dataflow": {
+						"referenceName": "df_challenge_bronze_to_silver",
+						"type": "DataFlowReference",
+						"datasetParameters": {
+							"employeesBronze": {
+								"container": {
+									"value": "@pipeline().parameters.container_bronze",
+									"type": "Expression"
+								},
+								"directory": {
+									"value": "@pipeline().parameters.container_bronze",
+									"type": "Expression"
+								},
+								"file_name": "hired_employees.xlsx",
+								"sheet_name": "hired_employees"
+							},
+							"departmentsBronze": {
+								"container": {
+									"value": "@pipeline().parameters.container_bronze",
+									"type": "Expression"
+								},
+								"directory": {
+									"value": "@pipeline().parameters.directory_bronze",
+									"type": "Expression"
+								},
+								"file_name": "departments.xlsx",
+								"sheet_name": "departments"
+							},
+							"jobsBronze": {
+								"container": {
+									"value": "@pipeline().parameters.container_bronze",
+									"type": "Expression"
+								},
+								"directory": {
+									"value": "@pipeline().parameters.directory_bronze",
+									"type": "Expression"
+								},
+								"file_name": "jobs.xlsx",
+								"sheet_name": "jobs"
+							},
+							"employeesSilver": {
+								"container": {
+									"value": "@pipeline().parameters.container_silver",
+									"type": "Expression"
+								},
+								"directory": {
+									"value": "@{pipeline().parameters.directory_silver}/employees",
+									"type": "Expression"
+								},
+								"file_name": "employees.parquet"
+							},
+							"departmentsSilver": {
+								"container": {
+									"value": "@pipeline().parameters.container_silver",
+									"type": "Expression"
+								},
+								"directory": {
+									"value": "@{pipeline().parameters.directory_silver}/departments",
+									"type": "Expression"
+								},
+								"file_name": "departments.parquet"
+							},
+							"jobsSilver": {
+								"container": {
+									"value": "@pipeline().parameters.container_silver",
+									"type": "Expression"
+								},
+								"directory": {
+									"value": "@{pipeline().parameters.directory_silver}/jobs",
+									"type": "Expression"
+								},
+								"file_name": "jobs.parquet"
+							}
+						}
+					},
+					"compute": {
+						"coreCount": 8,
+						"computeType": "General"
+					},
+					"traceLevel": "Fine"
+				}
+			}
+		],
+		"parameters": {
+			"container_bronze": {
+				"type": "string",
+				"defaultValue": "bronze"
+			},
+			"container_silver": {
+				"type": "string",
+				"defaultValue": "silver"
+			},
+			"directory_bronze": {
+				"type": "string"
+			},
+			"directory_silver": {
+				"type": "string"
+			}
+		},
+		"annotations": []
+	}
+}
