@@ -85,20 +85,6 @@
 									"type": "Expression"
 								}
 							}
-						},
-						"linkedServiceParameters": {
-							"employeesSilver": {
-								"schemaLinkedService": {
-									"container": {
-										"value": "@pipeline().parameters.container_silver",
-										"type": "Expression"
-									},
-									"directory": {
-										"value": "@{pipeline().parameters.directory_silver}/employees",
-										"type": "Expression"
-									}
-								}
-							}
 						}
 					},
 					"compute": {
@@ -199,6 +185,26 @@
 						"computeType": "General"
 					},
 					"traceLevel": "Fine"
+				}
+			},
+			{
+				"name": "Historic Data Gold to DB",
+				"type": "ExecutePipeline",
+				"dependsOn": [
+					{
+						"activity": "Historic Data Bronze to Silver_copy1",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"userProperties": [],
+				"typeProperties": {
+					"pipeline": {
+						"referenceName": "pl_load_gold_to_db",
+						"type": "PipelineReference"
+					},
+					"waitOnCompletion": true
 				}
 			}
 		],
