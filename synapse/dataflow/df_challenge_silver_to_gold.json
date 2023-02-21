@@ -6,33 +6,33 @@
 			"sources": [
 				{
 					"dataset": {
-						"referenceName": "ds_adls_xlsx",
+						"referenceName": "ds_adls_sink_parquet",
 						"type": "DatasetReference"
 					},
-					"name": "employeesBronze"
+					"name": "employeesSilver"
 				},
 				{
 					"dataset": {
-						"referenceName": "ds_adls_xlsx",
+						"referenceName": "ds_adls_sink_parquet",
 						"type": "DatasetReference"
 					},
-					"name": "departmentsBronze"
+					"name": "departmentsSilver"
 				},
 				{
 					"dataset": {
-						"referenceName": "ds_adls_xlsx",
+						"referenceName": "ds_adls_sink_parquet",
 						"type": "DatasetReference"
 					},
-					"name": "jobsBronze"
+					"name": "jobsSilver"
 				}
 			],
 			"sinks": [
 				{
 					"dataset": {
-						"referenceName": "ds_adls_parquet",
+						"referenceName": "ds_adls_sink_parquet",
 						"type": "DatasetReference"
 					},
-					"name": "employeesSilver",
+					"name": "employeesGold",
 					"rejectedDataLinkedService": {
 						"referenceName": "onb-demo-synapse-analytics-WorkspaceDefaultStorage",
 						"type": "LinkedServiceReference"
@@ -40,10 +40,10 @@
 				},
 				{
 					"dataset": {
-						"referenceName": "ds_adls_parquet",
+						"referenceName": "ds_adls_sink_parquet",
 						"type": "DatasetReference"
 					},
-					"name": "departmentsSilver",
+					"name": "departmentsGold",
 					"rejectedDataLinkedService": {
 						"referenceName": "onb-demo-synapse-analytics-WorkspaceDefaultStorage",
 						"type": "LinkedServiceReference"
@@ -51,10 +51,10 @@
 				},
 				{
 					"dataset": {
-						"referenceName": "ds_adls_parquet",
+						"referenceName": "ds_adls_sink_parquet",
 						"type": "DatasetReference"
 					},
-					"name": "jobsSilver",
+					"name": "jobsGold",
 					"rejectedDataLinkedService": {
 						"referenceName": "onb-demo-synapse-analytics-WorkspaceDefaultStorage",
 						"type": "LinkedServiceReference"
@@ -63,77 +63,45 @@
 			],
 			"transformations": [
 				{
-					"name": "SetColumnNamesEmployees"
+					"name": "SetDateKey"
 				},
 				{
-					"name": "SetNullValuesEmployees"
-				},
-				{
-					"name": "SetColumnNamesDepartments"
-				},
-				{
-					"name": "SetNullValuesDepartments"
-				},
-				{
-					"name": "SetColumnNamesJobs"
-				},
-				{
-					"name": "SetNullValuesJobs"
+					"name": "SelectColumns"
 				}
 			],
 			"scriptLines": [
 				"source(output(",
-				"          {_col0_} as integer,",
-				"          {_col1_} as string,",
-				"          {_col2_} as string,",
-				"          {_col3_} as integer,",
-				"          {_col4_} as integer",
+				"          id as integer,",
+				"          name as string,",
+				"          datetime as string,",
+				"          department_id as integer,",
+				"          job_id as integer",
 				"     ),",
 				"     allowSchemaDrift: true,",
 				"     validateSchema: false,",
-				"     ignoreNoFilesFound: false) ~> employeesBronze",
-				"source(output(",
-				"          {_col0_} as integer,",
-				"          {_col1_} as string",
-				"     ),",
-				"     allowSchemaDrift: true,",
+				"     ignoreNoFilesFound: false,",
+				"     format: 'parquet') ~> employeesSilver",
+				"source(allowSchemaDrift: true,",
 				"     validateSchema: false,",
-				"     ignoreNoFilesFound: false) ~> departmentsBronze",
-				"source(output(",
-				"          {_col0_} as integer,",
-				"          {_col1_} as string",
-				"     ),",
-				"     allowSchemaDrift: true,",
+				"     ignoreNoFilesFound: false,",
+				"     format: 'parquet') ~> departmentsSilver",
+				"source(allowSchemaDrift: true,",
 				"     validateSchema: false,",
-				"     ignoreNoFilesFound: false) ~> jobsBronze",
-				"employeesBronze select(mapColumn(",
-				"          id = {_col0_},",
-				"          name = {_col1_},",
-				"          datetime = {_col2_},",
-				"          department_id = {_col3_},",
-				"          job_id = {_col4_}",
+				"     ignoreNoFilesFound: false,",
+				"     format: 'parquet') ~> jobsSilver",
+				"employeesSilver derive(date = replace((split(datetime, 'T')[1]), '-', ''),",
+				"          time = replace((split(datetime, 'T')[2]), 'Z', '')) ~> SetDateKey",
+				"SetDateKey select(mapColumn(",
+				"          id,",
+				"          name,",
+				"          department_id,",
+				"          job_id,",
+				"          date,",
+				"          time",
 				"     ),",
 				"     skipDuplicateMapInputs: true,",
-				"     skipDuplicateMapOutputs: true) ~> SetColumnNamesEmployees",
-				"SetColumnNamesEmployees derive(name = coalesce(name, 'NOT_DEFINED'),",
-				"          datetime = coalesce(datetime, '0000-00-00T00:00:00Z'),",
-				"          department_id = coalesce(department_id, -1),",
-				"          job_id = coalesce(job_id, -1)) ~> SetNullValuesEmployees",
-				"departmentsBronze select(mapColumn(",
-				"          id = {_col0_},",
-				"          department = {_col1_}",
-				"     ),",
-				"     skipDuplicateMapInputs: true,",
-				"     skipDuplicateMapOutputs: true) ~> SetColumnNamesDepartments",
-				"SetColumnNamesDepartments derive(department = coalesce(department, 'NOT_DEFINED')) ~> SetNullValuesDepartments",
-				"jobsBronze select(mapColumn(",
-				"          id = {_col0_},",
-				"          job = {_col1_}",
-				"     ),",
-				"     skipDuplicateMapInputs: true,",
-				"     skipDuplicateMapOutputs: true) ~> SetColumnNamesJobs",
-				"SetColumnNamesJobs derive(job = coalesce(job, 'NOT_DEFINED')) ~> SetNullValuesJobs",
-				"SetNullValuesEmployees sink(allowSchemaDrift: true,",
+				"     skipDuplicateMapOutputs: true) ~> SelectColumns",
+				"SelectColumns sink(allowSchemaDrift: true,",
 				"     validateSchema: false,",
 				"     format: 'parquet',",
 				"     truncate: true,",
@@ -141,8 +109,8 @@
 				"     preCommands: [],",
 				"     postCommands: [],",
 				"     skipDuplicateMapInputs: true,",
-				"     skipDuplicateMapOutputs: true) ~> employeesSilver",
-				"SetNullValuesDepartments sink(allowSchemaDrift: true,",
+				"     skipDuplicateMapOutputs: true) ~> employeesGold",
+				"departmentsSilver sink(allowSchemaDrift: true,",
 				"     validateSchema: false,",
 				"     format: 'parquet',",
 				"     truncate: true,",
@@ -150,8 +118,8 @@
 				"     preCommands: [],",
 				"     postCommands: [],",
 				"     skipDuplicateMapInputs: true,",
-				"     skipDuplicateMapOutputs: true) ~> departmentsSilver",
-				"SetNullValuesJobs sink(allowSchemaDrift: true,",
+				"     skipDuplicateMapOutputs: true) ~> departmentsGold",
+				"jobsSilver sink(allowSchemaDrift: true,",
 				"     validateSchema: false,",
 				"     format: 'parquet',",
 				"     truncate: true,",
@@ -159,7 +127,7 @@
 				"     preCommands: [],",
 				"     postCommands: [],",
 				"     skipDuplicateMapInputs: true,",
-				"     skipDuplicateMapOutputs: true) ~> jobsSilver"
+				"     skipDuplicateMapOutputs: true) ~> jobsGold"
 			]
 		}
 	}
