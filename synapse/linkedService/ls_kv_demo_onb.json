@@ -1,0 +1,12 @@
+{
+	"name": "ls_kv_demo_onb",
+	"type": "Microsoft.Synapse/workspaces/linkedservices",
+	"properties": {
+		"description": "Key vault connection",
+		"annotations": [],
+		"type": "AzureKeyVault",
+		"typeProperties": {
+			"baseUrl": "https://kv-onb-demo.vault.azure.net/"
+		}
+	}
+}

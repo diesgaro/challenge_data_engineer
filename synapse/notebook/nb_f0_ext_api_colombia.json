@@ -1,0 +1,167 @@
+{
+	"name": "nb_f0_ext_api_colombia",
+	"properties": {
+		"nbformat": 4,
+		"nbformat_minor": 2,
+		"bigDataPool": {
+			"referenceName": "aspdemoonbsmall",
+			"type": "BigDataPoolReference"
+		},
+		"sessionProperties": {
+			"driverMemory": "28g",
+			"driverCores": 4,
+			"executorMemory": "28g",
+			"executorCores": 4,
+			"numExecutors": 1,
+			"runAsWorkspaceSystemIdentity": false,
+			"conf": {
+				"spark.dynamicAllocation.enabled": "true",
+				"spark.dynamicAllocation.minExecutors": "1",
+				"spark.dynamicAllocation.maxExecutors": "2",
+				"spark.autotune.trackingId": "7d4569bd-93b9-4ad6-a047-f2d7c3b9ae7d"
+			}
+		},
+		"metadata": {
+			"saveOutput": true,
+			"synapse_widget": {
+				"version": "0.1"
+			},
+			"enableDebugMode": false,
+			"kernelspec": {
+				"name": "synapse_pyspark",
+				"display_name": "Synapse PySpark"
+			},
+			"language_info": {
+				"name": "python"
+			},
+			"a365ComputeOptions": {
+				"id": "/subscriptions/fe40ac6c-4550-4635-9f63-a689d5e2023a/resourceGroups/rg_synapse_demo/providers/Microsoft.Synapse/workspaces/onb-demo-synapse-analytics/bigDataPools/aspdemoonbsmall",
+				"name": "aspdemoonbsmall",
+				"type": "Spark",
+				"endpoint": "https://onb-demo-synapse-analytics.dev.azuresynapse.net/livyApi/versions/2019-11-01-preview/sparkPools/aspdemoonbsmall",
+				"auth": {
+					"type": "AAD",
+					"authResource": "https://dev.azuresynapse.net",
+					"authHeader": null
+				},
+				"sparkVersion": "3.2",
+				"nodeCount": 3,
+				"cores": 4,
+				"memory": 28,
+				"extraHeader": null
+			},
+			"sessionKeepAliveTimeout": 30
+		},
+		"cells": [
+			{
+				"cell_type": "code",
+				"source": [
+					"import requests\r\n",
+					"import json\r\n",
+					"import pyspark\r\n",
+					"import fsspec\r\n",
+					"from pyspark.sql import SparkSession\r\n",
+					"from pyspark.sql.types import *\r\n",
+					"\r\n",
+					"\r\n",
+					"spark = SparkSession.builder.appName('spark_session_onb_demo').getOrCreate()"
+				],
+				"execution_count": 46
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"# PARAMETERS\r\n",
+					"\r\n",
+					"# Storage info\r\n",
+					"ls_adls_name = 'onb-demo-synapse-analytics-WorkspaceDefaultStorage'\r\n",
+					"account_name = 'adlsonbdemo'\r\n",
+					"\r\n",
+					"# Bronze Zone\r\n",
+					"container_bronze_name = 'bronze'\r\n",
+					"mount_bronze_zone = 'mnt_bronze'\r\n",
+					"\r\n",
+					"# Sesion info\r\n",
+					"jobId = mssparkutils.env.getJobId()\r\n",
+					"  \r\n",
+					"# mssparkutils.fs.mount(  \r\n",
+					"#     'abfss://%s@%s.dfs.core.windows.net/' % (container_bronze_name, account_name), #ADLS GEN 2 PATH  \r\n",
+					"#     '/%s' % (mount_bronze_zone), #Mount Point Name  \r\n",
+					"#     { \"linkedService\" : '%s' % (ls_adls_name)}  \r\n",
+					"# )\r\n",
+					"\r\n",
+					"#mssparkutils.fs.unmount(mount_landing_zone)"
+				],
+				"execution_count": 10
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"mssparkutils.fs.ls(\"synfs:/{}/{}/api/api-colombia/\".format(jobId, mount_bronze_zone)) \r\n",
+					"\r\n",
+					""
+				],
+				"execution_count": 34
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"local_file_name = 'TouristicAttraction.json'\r\n",
+					"relative_path = 'api/api-colombia/TouristicAttraction'\r\n",
+					"\r\n",
+					"adls_bronze_path = \"abfss://%s@%s.dfs.core.windows.net/%s/\" % (container_bronze_name, account_name, relative_path)\r\n",
+					"\r\n",
+					"#bronze_load_relative_path = \"synfs:/{}/{}/{}/{}\".format(jobId, mount_bronze_zone, 'api/api-colombia/TouristicAttraction', 'TouristicAttraction.json')\r\n",
+					"\r\n",
+					"json_tourist_attraction = requests.get('https://api-colombia.com/api/v1/TouristicAttraction').text\r\n",
+					"\r\n",
+					"with open (local_file_name, mode='w') as f:\r\n",
+					"    f.write(json_tourist_attraction)\r\n",
+					"    f.close\r\n",
+					"\r\n",
+					"fs = fsspec.filesystem('abfss')\r\n",
+					"\r\n",
+					"print(fs.exists(adls_bronze_path+'/{}'.format(local_file_name)))\r\n",
+					"\r\n",
+					"\r\n",
+					"\r\n",
+					"#fs.upload(local_file_name, adls_bronze_path)"
+				],
+				"execution_count": 65
+			}
+		]
+	}
+}
