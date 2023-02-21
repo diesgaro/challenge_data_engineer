@@ -29,7 +29,7 @@
 			"sinks": [
 				{
 					"dataset": {
-						"referenceName": "ds_adls_sink_parquet",
+						"referenceName": "ds_adls_parquet",
 						"type": "DatasetReference"
 					},
 					"name": "employeesGold",
@@ -40,7 +40,7 @@
 				},
 				{
 					"dataset": {
-						"referenceName": "ds_adls_sink_parquet",
+						"referenceName": "ds_adls_parquet",
 						"type": "DatasetReference"
 					},
 					"name": "departmentsGold",
@@ -51,7 +51,7 @@
 				},
 				{
 					"dataset": {
-						"referenceName": "ds_adls_sink_parquet",
+						"referenceName": "ds_adls_parquet",
 						"type": "DatasetReference"
 					},
 					"name": "jobsGold",
