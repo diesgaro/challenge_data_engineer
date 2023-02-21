@@ -130,69 +130,7 @@
 				"typeProperties": {
 					"dataflow": {
 						"referenceName": "df_challenge_silver_to_gold",
-						"type": "DataFlowReference",
-						"datasetParameters": {
-							"employeesSilver": {
-								"container": {
-									"value": "@pipeline().parameters.container_silver",
-									"type": "Expression"
-								},
-								"directory": {
-									"value": "@{pipeline().parameters.directory_silver}/employees",
-									"type": "Expression"
-								}
-							},
-							"departmentsSilver": {
-								"container": {
-									"value": "@pipeline().parameters.container_silver",
-									"type": "Expression"
-								},
-								"directory": {
-									"value": "@{pipeline().parameters.directory_silver}/departments",
-									"type": "Expression"
-								}
-							},
-							"jobsSilver": {
-								"container": {
-									"value": "@pipeline().parameters.container_silver",
-									"type": "Expression"
-								},
-								"directory": {
-									"value": "@{pipeline().parameters.directory_silver}/jobs",
-									"type": "Expression"
-								}
-							},
-							"employeesGold": {
-								"container": {
-									"value": "@pipeline().parameters.container_gold",
-									"type": "Expression"
-								},
-								"directory": {
-									"value": "@{pipeline().parameters.directory_gold}/employees",
-									"type": "Expression"
-								}
-							},
-							"departmentsGold": {
-								"container": {
-									"value": "@pipeline().parameters.container_gold",
-									"type": "Expression"
-								},
-								"directory": {
-									"value": "@{pipeline().parameters.directory_gold}/departments",
-									"type": "Expression"
-								}
-							},
-							"jobsGold": {
-								"container": {
-									"value": "@pipeline().parameters.container_gold",
-									"type": "Expression"
-								},
-								"directory": {
-									"value": "@{pipeline().parameters.directory_gold}/jobs",
-									"type": "Expression"
-								}
-							}
-						}
+						"type": "DataFlowReference"
 					},
 					"compute": {
 						"coreCount": 8,
