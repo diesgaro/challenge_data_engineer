@@ -6,21 +6,21 @@
 			"sources": [
 				{
 					"dataset": {
-						"referenceName": "ds_adls_sink_parquet",
+						"referenceName": "ds_adls_parquet",
 						"type": "DatasetReference"
 					},
 					"name": "employeesSilver"
 				},
 				{
 					"dataset": {
-						"referenceName": "ds_adls_sink_parquet",
+						"referenceName": "ds_adls_parquet",
 						"type": "DatasetReference"
 					},
 					"name": "departmentsSilver"
 				},
 				{
 					"dataset": {
-						"referenceName": "ds_adls_sink_parquet",
+						"referenceName": "ds_adls_parquet",
 						"type": "DatasetReference"
 					},
 					"name": "jobsSilver"
@@ -70,14 +70,7 @@
 				}
 			],
 			"scriptLines": [
-				"source(output(",
-				"          id as integer,",
-				"          name as string,",
-				"          datetime as string,",
-				"          department_id as integer,",
-				"          job_id as integer",
-				"     ),",
-				"     allowSchemaDrift: true,",
+				"source(allowSchemaDrift: true,",
 				"     validateSchema: false,",
 				"     ignoreNoFilesFound: false,",
 				"     format: 'parquet') ~> employeesSilver",
