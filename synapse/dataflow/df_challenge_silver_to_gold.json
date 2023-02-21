@@ -6,21 +6,21 @@
 			"sources": [
 				{
 					"dataset": {
-						"referenceName": "ds_adls_bronze_xlsx",
+						"referenceName": "ds_adls_xlsx",
 						"type": "DatasetReference"
 					},
 					"name": "employeesBronze"
 				},
 				{
 					"dataset": {
-						"referenceName": "ds_adls_bronze_xlsx",
+						"referenceName": "ds_adls_xlsx",
 						"type": "DatasetReference"
 					},
 					"name": "departmentsBronze"
 				},
 				{
 					"dataset": {
-						"referenceName": "ds_adls_bronze_xlsx",
+						"referenceName": "ds_adls_xlsx",
 						"type": "DatasetReference"
 					},
 					"name": "jobsBronze"
@@ -29,7 +29,7 @@
 			"sinks": [
 				{
 					"dataset": {
-						"referenceName": "ds_adls_silver_parquet",
+						"referenceName": "ds_adls_parquet",
 						"type": "DatasetReference"
 					},
 					"name": "employeesSilver",
@@ -40,7 +40,7 @@
 				},
 				{
 					"dataset": {
-						"referenceName": "ds_adls_silver_parquet",
+						"referenceName": "ds_adls_parquet",
 						"type": "DatasetReference"
 					},
 					"name": "departmentsSilver",
@@ -51,7 +51,7 @@
 				},
 				{
 					"dataset": {
-						"referenceName": "ds_adls_silver_parquet",
+						"referenceName": "ds_adls_parquet",
 						"type": "DatasetReference"
 					},
 					"name": "jobsSilver",

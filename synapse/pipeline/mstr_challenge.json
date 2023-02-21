@@ -3,7 +3,7 @@
 	"properties": {
 		"activities": [
 			{
-				"name": "Challenge Bronze to Silver",
+				"name": "Historic Data Bronze to Silver",
 				"type": "ExecuteDataFlow",
 				"dependsOn": [],
 				"policy": {
