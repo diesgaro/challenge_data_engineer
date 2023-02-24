@@ -1,0 +1,239 @@
+{
+	"name": "mstr_historic_challenge",
+	"properties": {
+		"activities": [
+			{
+				"name": "Historic Data Bronze to Silver",
+				"type": "ExecuteDataFlow",
+				"dependsOn": [],
+				"policy": {
+					"timeout": "0.12:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"dataflow": {
+						"referenceName": "df_challenge_bronze_to_silver",
+						"type": "DataFlowReference",
+						"datasetParameters": {
+							"employeesBronze": {
+								"container": {
+									"value": "@pipeline().parameters.container_bronze",
+									"type": "Expression"
+								},
+								"directory": {
+									"value": "@pipeline().parameters.directory_bronze",
+									"type": "Expression"
+								},
+								"file_name": "hired_employees.xlsx",
+								"sheet_name": "hired_employees"
+							},
+							"departmentsBronze": {
+								"container": {
+									"value": "@pipeline().parameters.container_bronze",
+									"type": "Expression"
+								},
+								"directory": {
+									"value": "@pipeline().parameters.directory_bronze",
+									"type": "Expression"
+								},
+								"file_name": "departments.xlsx",
+								"sheet_name": "departments"
+							},
+							"jobsBronze": {
+								"container": {
+									"value": "@pipeline().parameters.container_bronze",
+									"type": "Expression"
+								},
+								"directory": {
+									"value": "@pipeline().parameters.directory_bronze",
+									"type": "Expression"
+								},
+								"file_name": "jobs.xlsx",
+								"sheet_name": "jobs"
+							},
+							"employeesSilver": {
+								"container": {
+									"value": "@pipeline().parameters.container_silver",
+									"type": "Expression"
+								},
+								"directory": {
+									"value": "@{pipeline().parameters.directory_silver}/employees",
+									"type": "Expression"
+								}
+							},
+							"departmentsSilver": {
+								"container": {
+									"value": "@pipeline().parameters.container_silver",
+									"type": "Expression"
+								},
+								"directory": {
+									"value": "@{pipeline().parameters.directory_silver}/departments",
+									"type": "Expression"
+								}
+							},
+							"jobsSilver": {
+								"container": {
+									"value": "@pipeline().parameters.container_silver",
+									"type": "Expression"
+								},
+								"directory": {
+									"value": "@{pipeline().parameters.directory_silver}/jobs",
+									"type": "Expression"
+								}
+							}
+						}
+					},
+					"compute": {
+						"coreCount": 8,
+						"computeType": "General"
+					},
+					"traceLevel": "Fine"
+				}
+			},
+			{
+				"name": "Historic Data Bronze to Silver_copy1",
+				"type": "ExecuteDataFlow",
+				"dependsOn": [
+					{
+						"activity": "Historic Data Bronze to Silver",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"policy": {
+					"timeout": "0.12:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"dataflow": {
+						"referenceName": "df_challenge_silver_to_gold",
+						"type": "DataFlowReference",
+						"datasetParameters": {
+							"employeesSilver": {
+								"container": {
+									"value": "@pipeline().parameters.container_silver",
+									"type": "Expression"
+								},
+								"directory": {
+									"value": "@{pipeline().parameters.directory_silver}/employees",
+									"type": "Expression"
+								}
+							},
+							"departmentsSilver": {
+								"container": {
+									"value": "@pipeline().parameters.container_silver",
+									"type": "Expression"
+								},
+								"directory": {
+									"value": "@{pipeline().parameters.directory_silver}/departments",
+									"type": "Expression"
+								}
+							},
+							"jobsSilver": {
+								"container": {
+									"value": "@pipeline().parameters.container_silver",
+									"type": "Expression"
+								},
+								"directory": {
+									"value": "@{pipeline().parameters.directory_silver}/jobs",
+									"type": "Expression"
+								}
+							},
+							"employeesGold": {
+								"container": {
+									"value": "@pipeline().parameters.container_gold",
+									"type": "Expression"
+								},
+								"directory": {
+									"value": "@{pipeline().parameters.directory_gold}/employees",
+									"type": "Expression"
+								}
+							},
+							"departmentsGold": {
+								"container": {
+									"value": "@pipeline().parameters.container_gold",
+									"type": "Expression"
+								},
+								"directory": {
+									"value": "@{pipeline().parameters.directory_gold}/departments",
+									"type": "Expression"
+								}
+							},
+							"jobsGold": {
+								"container": {
+									"value": "@pipeline().parameters.container_gold",
+									"type": "Expression"
+								},
+								"directory": {
+									"value": "@{pipeline().parameters.directory_gold}/jobs",
+									"type": "Expression"
+								}
+							}
+						}
+					},
+					"compute": {
+						"coreCount": 8,
+						"computeType": "General"
+					},
+					"traceLevel": "Fine"
+				}
+			},
+			{
+				"name": "Historic Data Gold to DB",
+				"type": "ExecutePipeline",
+				"dependsOn": [
+					{
+						"activity": "Historic Data Bronze to Silver_copy1",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"userProperties": [],
+				"typeProperties": {
+					"pipeline": {
+						"referenceName": "pl_load_gold_to_db",
+						"type": "PipelineReference"
+					},
+					"waitOnCompletion": true
+				}
+			}
+		],
+		"parameters": {
+			"container_bronze": {
+				"type": "string",
+				"defaultValue": "bronze"
+			},
+			"container_silver": {
+				"type": "string",
+				"defaultValue": "silver"
+			},
+			"container_gold": {
+				"type": "string",
+				"defaultValue": "gold"
+			},
+			"directory_bronze": {
+				"type": "string",
+				"defaultValue": "challenge"
+			},
+			"directory_silver": {
+				"type": "string",
+				"defaultValue": "challenge"
+			},
+			"directory_gold": {
+				"type": "string",
+				"defaultValue": "challenge"
+			}
+		},
+		"annotations": []
+	}
+}
