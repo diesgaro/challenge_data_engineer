@@ -1,0 +1,87 @@
+{
+	"name": "pl_restore_backup",
+	"properties": {
+		"activities": [
+			{
+				"name": "Restore Backup",
+				"type": "Copy",
+				"dependsOn": [],
+				"policy": {
+					"timeout": "0.12:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"source": {
+						"type": "AvroSource",
+						"storeSettings": {
+							"type": "AzureBlobFSReadSettings",
+							"recursive": true,
+							"enablePartitionDiscovery": false
+						}
+					},
+					"sink": {
+						"type": "AzureSqlSink",
+						"writeBehavior": "insert",
+						"sqlWriterUseTableLock": false,
+						"disableMetricsCollection": false
+					},
+					"enableStaging": false,
+					"translator": {
+						"type": "TabularTranslator",
+						"typeConversion": true,
+						"typeConversionSettings": {
+							"allowDataTruncation": true,
+							"treatBooleanAsNumber": false
+						}
+					}
+				},
+				"inputs": [
+					{
+						"referenceName": "ds_adls_avro",
+						"type": "DatasetReference",
+						"parameters": {
+							"container": "backups-azure-sql",
+							"directory": {
+								"value": "@pipeline().parameters.table",
+								"type": "Expression"
+							},
+							"file": {
+								"value": "@pipeline().parameters.backup_file",
+								"type": "Expression"
+							}
+						}
+					}
+				],
+				"outputs": [
+					{
+						"referenceName": "ds_sql_onb_demo",
+						"type": "DatasetReference",
+						"parameters": {
+							"schema": "challenge",
+							"table": {
+								"value": "@pipeline().parameters.table",
+								"type": "Expression"
+							}
+						}
+					}
+				]
+			}
+		],
+		"parameters": {
+			"table": {
+				"type": "string"
+			},
+			"backup_file": {
+				"type": "string"
+			}
+		},
+		"folder": {
+			"name": "BACKUPS_MANAGER/RESTORE_BACKUPS"
+		},
+		"annotations": []
+	}
+}

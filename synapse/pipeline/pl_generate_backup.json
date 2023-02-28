@@ -1,0 +1,88 @@
+{
+	"name": "pl_generate_backup",
+	"properties": {
+		"activities": [
+			{
+				"name": "Backup_Data_Tables",
+				"type": "Copy",
+				"dependsOn": [],
+				"policy": {
+					"timeout": "0.12:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"source": {
+						"type": "AzureSqlSource",
+						"queryTimeout": "02:00:00",
+						"partitionOption": "None"
+					},
+					"sink": {
+						"type": "AvroSink",
+						"storeSettings": {
+							"type": "AzureBlobFSWriteSettings"
+						},
+						"formatSettings": {
+							"type": "AvroWriteSettings"
+						}
+					},
+					"enableStaging": false,
+					"translator": {
+						"type": "TabularTranslator",
+						"typeConversion": true,
+						"typeConversionSettings": {
+							"allowDataTruncation": true,
+							"treatBooleanAsNumber": false
+						}
+					}
+				},
+				"inputs": [
+					{
+						"referenceName": "ds_sql_onb_demo",
+						"type": "DatasetReference",
+						"parameters": {
+							"schema": "challenge",
+							"table": {
+								"value": "@pipeline().parameters.table",
+								"type": "Expression"
+							}
+						}
+					}
+				],
+				"outputs": [
+					{
+						"referenceName": "ds_adls_avro",
+						"type": "DatasetReference",
+						"parameters": {
+							"container": "backups-azure-sql",
+							"directory": {
+								"value": "@pipeline().parameters.table",
+								"type": "Expression"
+							},
+							"file": {
+								"value": "@{pipeline().parameters.table}_@{utcNow('yyyyMMdd_HHmm')}.@{pipeline().parameters.bk_file_extension}",
+								"type": "Expression"
+							}
+						}
+					}
+				]
+			}
+		],
+		"parameters": {
+			"table": {
+				"type": "string"
+			},
+			"bk_file_extension": {
+				"type": "string",
+				"defaultValue": "avro"
+			}
+		},
+		"folder": {
+			"name": "BACKUPS_MANAGER/GENERATE_BACKUPS"
+		},
+		"annotations": []
+	}
+}
