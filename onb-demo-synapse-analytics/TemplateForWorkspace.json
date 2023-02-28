@@ -1,0 +1,1812 @@
+{
+	"$schema": "http://schema.management.azure.com/schemas/2015-01-01/deploymentTemplate.json#",
+	"contentVersion": "1.0.0.0",
+	"parameters": {
+		"workspaceName": {
+			"type": "string",
+			"metadata": "Workspace name",
+			"defaultValue": "onb-demo-synapse-analytics"
+		},
+		"ls_db_sql_onb_demo_connectionString": {
+			"type": "secureString",
+			"metadata": "Secure string for 'connectionString' of 'ls_db_sql_onb_demo'"
+		},
+		"onb-demo-synapse-analytics-WorkspaceDefaultSqlServer_connectionString": {
+			"type": "secureString",
+			"metadata": "Secure string for 'connectionString' of 'onb-demo-synapse-analytics-WorkspaceDefaultSqlServer'",
+			"defaultValue": "Integrated Security=False;Encrypt=True;Connection Timeout=30;Data Source=tcp:onb-demo-synapse-analytics.sql.azuresynapse.net,1433;Initial Catalog=@{linkedService().DBName}"
+		},
+		"ls_kv_demo_onb_properties_typeProperties_baseUrl": {
+			"type": "string",
+			"defaultValue": "https://kv-onb-demo.vault.azure.net/"
+		},
+		"onb-demo-synapse-analytics-WorkspaceDefaultStorage_properties_typeProperties_url": {
+			"type": "string",
+			"defaultValue": "https://adlsonbdemo.dfs.core.windows.net"
+		}
+	},
+	"variables": {
+		"workspaceId": "[concat('Microsoft.Synapse/workspaces/', parameters('workspaceName'))]"
+	},
+	"resources": [
+		{
+			"name": "[concat(parameters('workspaceName'), '/pl_generate_backup')]",
+			"type": "Microsoft.Synapse/workspaces/pipelines",
+			"apiVersion": "2019-06-01-preview",
+			"properties": {
+				"activities": [
+					{
+						"name": "Backup_Data_Tables",
+						"type": "Copy",
+						"dependsOn": [],
+						"policy": {
+							"timeout": "0.12:00:00",
+							"retry": 0,
+							"retryIntervalInSeconds": 30,
+							"secureOutput": false,
+							"secureInput": false
+						},
+						"userProperties": [],
+						"typeProperties": {
+							"source": {
+								"type": "AzureSqlSource",
+								"queryTimeout": "02:00:00",
+								"partitionOption": "None"
+							},
+							"sink": {
+								"type": "AvroSink",
+								"storeSettings": {
+									"type": "AzureBlobFSWriteSettings"
+								},
+								"formatSettings": {
+									"type": "AvroWriteSettings"
+								}
+							},
+							"enableStaging": false,
+							"translator": {
+								"type": "TabularTranslator",
+								"typeConversion": true,
+								"typeConversionSettings": {
+									"allowDataTruncation": true,
+									"treatBooleanAsNumber": false
+								}
+							}
+						},
+						"inputs": [
+							{
+								"referenceName": "ds_sql_onb_demo",
+								"type": "DatasetReference",
+								"parameters": {
+									"schema": "challenge",
+									"table": {
+										"value": "@pipeline().parameters.table",
+										"type": "Expression"
+									}
+								}
+							}
+						],
+						"outputs": [
+							{
+								"referenceName": "ds_adls_avro",
+								"type": "DatasetReference",
+								"parameters": {
+									"container": "backups-azure-sql",
+									"directory": {
+										"value": "@pipeline().parameters.table",
+										"type": "Expression"
+									},
+									"file": {
+										"value": "@{pipeline().parameters.table}_@{utcNow('yyyyMMdd_HHmm')}.@{pipeline().parameters.bk_file_extension}",
+										"type": "Expression"
+									}
+								}
+							}
+						]
+					}
+				],
+				"policy": {
+					"elapsedTimeMetric": {},
+					"cancelAfter": {}
+				},
+				"parameters": {
+					"table": {
+						"type": "string"
+					},
+					"bk_file_extension": {
+						"type": "string",
+						"defaultValue": "avro"
+					}
+				},
+				"folder": {
+					"name": "BACKUPS_MANAGER/GENERATE_BACKUPS"
+				},
+				"annotations": []
+			},
+			"dependsOn": [
+				"[concat(variables('workspaceId'), '/datasets/ds_sql_onb_demo')]",
+				"[concat(variables('workspaceId'), '/datasets/ds_adls_avro')]"
+			]
+		},
+		{
+			"name": "[concat(parameters('workspaceName'), '/pl_load_gold_to_db')]",
+			"type": "Microsoft.Synapse/workspaces/pipelines",
+			"apiVersion": "2019-06-01-preview",
+			"properties": {
+				"activities": [
+					{
+						"name": "Load employees",
+						"type": "Copy",
+						"dependsOn": [],
+						"policy": {
+							"timeout": "0.12:00:00",
+							"retry": 0,
+							"retryIntervalInSeconds": 30,
+							"secureOutput": false,
+							"secureInput": false
+						},
+						"userProperties": [],
+						"typeProperties": {
+							"source": {
+								"type": "ParquetSource",
+								"storeSettings": {
+									"type": "AzureBlobFSReadSettings",
+									"recursive": true,
+									"wildcardFileName": "*.parquet",
+									"enablePartitionDiscovery": false
+								}
+							},
+							"sink": {
+								"type": "AzureSqlSink",
+								"writeBehavior": "upsert",
+								"upsertSettings": {
+									"useTempDB": true,
+									"keys": [
+										"id"
+									]
+								},
+								"sqlWriterUseTableLock": false,
+								"disableMetricsCollection": false
+							},
+							"enableStaging": false,
+							"translator": {
+								"type": "TabularTranslator",
+								"mappings": [
+									{
+										"source": {
+											"name": "id",
+											"type": "Int32",
+											"physicalType": "INT32"
+										},
+										"sink": {
+											"name": "id",
+											"type": "Int32",
+											"physicalType": "int"
+										}
+									},
+									{
+										"source": {
+											"name": "name",
+											"type": "String",
+											"physicalType": "UTF8"
+										},
+										"sink": {
+											"name": "name",
+											"type": "String",
+											"physicalType": "varchar"
+										}
+									},
+									{
+										"source": {
+											"name": "date",
+											"type": "String",
+											"physicalType": "UTF8"
+										},
+										"sink": {
+											"name": "date",
+											"type": "Int32",
+											"physicalType": "int"
+										}
+									},
+									{
+										"source": {
+											"name": "time",
+											"type": "String",
+											"physicalType": "UTF8"
+										},
+										"sink": {
+											"name": "time",
+											"type": "String",
+											"physicalType": "varchar"
+										}
+									},
+									{
+										"source": {
+											"name": "department_id",
+											"type": "Int32",
+											"physicalType": "INT32"
+										},
+										"sink": {
+											"name": "department_id",
+											"type": "Int32",
+											"physicalType": "int"
+										}
+									},
+									{
+										"source": {
+											"name": "job_id",
+											"type": "Int32",
+											"physicalType": "INT32"
+										},
+										"sink": {
+											"name": "job_id",
+											"type": "Int32",
+											"physicalType": "int"
+										}
+									}
+								],
+								"typeConversion": true,
+								"typeConversionSettings": {
+									"allowDataTruncation": true,
+									"treatBooleanAsNumber": false
+								}
+							}
+						},
+						"inputs": [
+							{
+								"referenceName": "ds_adls_parquet",
+								"type": "DatasetReference",
+								"parameters": {
+									"container": {
+										"value": "@pipeline().parameters.container_gold",
+										"type": "Expression"
+									},
+									"directory": {
+										"value": "@{pipeline().parameters.directory_gold}/employees",
+										"type": "Expression"
+									}
+								}
+							}
+						],
+						"outputs": [
+							{
+								"referenceName": "ds_sql_onb_demo",
+								"type": "DatasetReference",
+								"parameters": {
+									"schema": {
+										"value": "@pipeline().parameters.db_schema",
+										"type": "Expression"
+									},
+									"table": "employees"
+								}
+							}
+						]
+					},
+					{
+						"name": "Load departments",
+						"type": "Copy",
+						"dependsOn": [],
+						"policy": {
+							"timeout": "0.12:00:00",
+							"retry": 0,
+							"retryIntervalInSeconds": 30,
+							"secureOutput": false,
+							"secureInput": false
+						},
+						"userProperties": [],
+						"typeProperties": {
+							"source": {
+								"type": "ParquetSource",
+								"storeSettings": {
+									"type": "AzureBlobFSReadSettings",
+									"recursive": true,
+									"wildcardFileName": "*.parquet",
+									"enablePartitionDiscovery": false
+								}
+							},
+							"sink": {
+								"type": "AzureSqlSink",
+								"writeBehavior": "upsert",
+								"upsertSettings": {
+									"useTempDB": true,
+									"keys": [
+										"id"
+									]
+								},
+								"sqlWriterUseTableLock": false,
+								"disableMetricsCollection": false
+							},
+							"enableStaging": false,
+							"translator": {
+								"type": "TabularTranslator",
+								"mappings": [
+									{
+										"source": {
+											"name": "id",
+											"type": "Int32",
+											"physicalType": "INT32"
+										},
+										"sink": {
+											"name": "id",
+											"type": "Int32",
+											"physicalType": "int"
+										}
+									},
+									{
+										"source": {
+											"name": "department",
+											"type": "String",
+											"physicalType": "UTF8"
+										},
+										"sink": {
+											"name": "department",
+											"type": "String",
+											"physicalType": "varchar"
+										}
+									}
+								],
+								"typeConversion": true,
+								"typeConversionSettings": {
+									"allowDataTruncation": true,
+									"treatBooleanAsNumber": false
+								}
+							}
+						},
+						"inputs": [
+							{
+								"referenceName": "ds_adls_parquet",
+								"type": "DatasetReference",
+								"parameters": {
+									"container": {
+										"value": "@pipeline().parameters.container_gold",
+										"type": "Expression"
+									},
+									"directory": {
+										"value": "@{pipeline().parameters.directory_gold}/departments",
+										"type": "Expression"
+									}
+								}
+							}
+						],
+						"outputs": [
+							{
+								"referenceName": "ds_sql_onb_demo",
+								"type": "DatasetReference",
+								"parameters": {
+									"schema": {
+										"value": "@pipeline().parameters.db_schema",
+										"type": "Expression"
+									},
+									"table": "departments"
+								}
+							}
+						]
+					},
+					{
+						"name": "Load jobs",
+						"type": "Copy",
+						"dependsOn": [],
+						"policy": {
+							"timeout": "0.12:00:00",
+							"retry": 0,
+							"retryIntervalInSeconds": 30,
+							"secureOutput": false,
+							"secureInput": false
+						},
+						"userProperties": [],
+						"typeProperties": {
+							"source": {
+								"type": "ParquetSource",
+								"storeSettings": {
+									"type": "AzureBlobFSReadSettings",
+									"recursive": true,
+									"wildcardFileName": "*.parquet",
+									"enablePartitionDiscovery": false
+								}
+							},
+							"sink": {
+								"type": "AzureSqlSink",
+								"writeBehavior": "upsert",
+								"upsertSettings": {
+									"useTempDB": true,
+									"keys": [
+										"id"
+									]
+								},
+								"sqlWriterUseTableLock": false,
+								"disableMetricsCollection": false
+							},
+							"enableStaging": false,
+							"translator": {
+								"type": "TabularTranslator",
+								"mappings": [
+									{
+										"source": {
+											"name": "id",
+											"type": "Int32",
+											"physicalType": "INT32"
+										},
+										"sink": {
+											"name": "id",
+											"type": "Int32",
+											"physicalType": "int"
+										}
+									},
+									{
+										"source": {
+											"name": "job",
+											"type": "String",
+											"physicalType": "UTF8"
+										},
+										"sink": {
+											"name": "job",
+											"type": "String",
+											"physicalType": "varchar"
+										}
+									}
+								],
+								"typeConversion": true,
+								"typeConversionSettings": {
+									"allowDataTruncation": true,
+									"treatBooleanAsNumber": false
+								}
+							}
+						},
+						"inputs": [
+							{
+								"referenceName": "ds_adls_parquet",
+								"type": "DatasetReference",
+								"parameters": {
+									"container": {
+										"value": "@pipeline().parameters.container_gold",
+										"type": "Expression"
+									},
+									"directory": {
+										"value": "@{pipeline().parameters.directory_gold}/jobs",
+										"type": "Expression"
+									}
+								}
+							}
+						],
+						"outputs": [
+							{
+								"referenceName": "ds_sql_onb_demo",
+								"type": "DatasetReference",
+								"parameters": {
+									"schema": {
+										"value": "@pipeline().parameters.db_schema",
+										"type": "Expression"
+									},
+									"table": "jobs"
+								}
+							}
+						]
+					}
+				],
+				"policy": {
+					"elapsedTimeMetric": {},
+					"cancelAfter": {}
+				},
+				"parameters": {
+					"container_gold": {
+						"type": "string",
+						"defaultValue": "gold"
+					},
+					"directory_gold": {
+						"type": "string",
+						"defaultValue": "challenge"
+					},
+					"db_schema": {
+						"type": "string",
+						"defaultValue": "challenge"
+					}
+				},
+				"folder": {
+					"name": "LOAD_HISTORIC_DATA"
+				},
+				"annotations": []
+			},
+			"dependsOn": [
+				"[concat(variables('workspaceId'), '/datasets/ds_adls_parquet')]",
+				"[concat(variables('workspaceId'), '/datasets/ds_sql_onb_demo')]"
+			]
+		},
+		{
+			"name": "[concat(parameters('workspaceName'), '/pl_mstr_backups')]",
+			"type": "Microsoft.Synapse/workspaces/pipelines",
+			"apiVersion": "2019-06-01-preview",
+			"properties": {
+				"activities": [
+					{
+						"name": "Backup departments",
+						"type": "ExecutePipeline",
+						"dependsOn": [],
+						"userProperties": [],
+						"typeProperties": {
+							"pipeline": {
+								"referenceName": "pl_generate_backup",
+								"type": "PipelineReference"
+							},
+							"waitOnCompletion": true,
+							"parameters": {
+								"table": "departments",
+								"bk_file_extension": {
+									"value": "@pipeline().parameters.file_format",
+									"type": "Expression"
+								}
+							}
+						}
+					},
+					{
+						"name": "Backup employees",
+						"type": "ExecutePipeline",
+						"dependsOn": [],
+						"userProperties": [],
+						"typeProperties": {
+							"pipeline": {
+								"referenceName": "pl_generate_backup",
+								"type": "PipelineReference"
+							},
+							"waitOnCompletion": true,
+							"parameters": {
+								"table": "employees",
+								"bk_file_extension": {
+									"value": "@pipeline().parameters.file_format",
+									"type": "Expression"
+								}
+							}
+						}
+					},
+					{
+						"name": "Backup jobs",
+						"type": "ExecutePipeline",
+						"dependsOn": [],
+						"userProperties": [],
+						"typeProperties": {
+							"pipeline": {
+								"referenceName": "pl_generate_backup",
+								"type": "PipelineReference"
+							},
+							"waitOnCompletion": true,
+							"parameters": {
+								"table": "jobs",
+								"bk_file_extension": {
+									"value": "@pipeline().parameters.file_format",
+									"type": "Expression"
+								}
+							}
+						}
+					},
+					{
+						"name": "Backup logs",
+						"type": "ExecutePipeline",
+						"dependsOn": [],
+						"userProperties": [],
+						"typeProperties": {
+							"pipeline": {
+								"referenceName": "pl_generate_backup",
+								"type": "PipelineReference"
+							},
+							"waitOnCompletion": true,
+							"parameters": {
+								"table": "logs",
+								"bk_file_extension": {
+									"value": "@pipeline().parameters.file_format",
+									"type": "Expression"
+								}
+							}
+						}
+					},
+					{
+						"name": "Backup employees_hired_by_department",
+						"type": "ExecutePipeline",
+						"dependsOn": [],
+						"userProperties": [],
+						"typeProperties": {
+							"pipeline": {
+								"referenceName": "pl_generate_backup",
+								"type": "PipelineReference"
+							},
+							"waitOnCompletion": true,
+							"parameters": {
+								"table": "employees_hired_by_department",
+								"bk_file_extension": {
+									"value": "@pipeline().parameters.file_format",
+									"type": "Expression"
+								}
+							}
+						}
+					},
+					{
+						"name": "Backup employees_hired_by_quarter",
+						"type": "ExecutePipeline",
+						"dependsOn": [],
+						"userProperties": [],
+						"typeProperties": {
+							"pipeline": {
+								"referenceName": "pl_generate_backup",
+								"type": "PipelineReference"
+							},
+							"waitOnCompletion": true,
+							"parameters": {
+								"table": "employees_hired_by_quarter",
+								"bk_file_extension": {
+									"value": "@pipeline().parameters.file_format",
+									"type": "Expression"
+								}
+							}
+						}
+					}
+				],
+				"policy": {
+					"elapsedTimeMetric": {},
+					"cancelAfter": {}
+				},
+				"parameters": {
+					"file_format": {
+						"type": "string",
+						"defaultValue": "avro"
+					}
+				},
+				"folder": {
+					"name": "BACKUPS_MANAGER/GENERATE_BACKUPS"
+				},
+				"annotations": []
+			},
+			"dependsOn": [
+				"[concat(variables('workspaceId'), '/pipelines/pl_generate_backup')]"
+			]
+		},
+		{
+			"name": "[concat(parameters('workspaceName'), '/pl_mstr_historic_challenge')]",
+			"type": "Microsoft.Synapse/workspaces/pipelines",
+			"apiVersion": "2019-06-01-preview",
+			"properties": {
+				"activities": [
+					{
+						"name": "Historic Data Bronze to Silver",
+						"type": "ExecuteDataFlow",
+						"dependsOn": [],
+						"policy": {
+							"timeout": "0.12:00:00",
+							"retry": 0,
+							"retryIntervalInSeconds": 30,
+							"secureOutput": false,
+							"secureInput": false
+						},
+						"userProperties": [],
+						"typeProperties": {
+							"dataflow": {
+								"referenceName": "df_challenge_bronze_to_silver",
+								"type": "DataFlowReference",
+								"parameters": {},
+								"datasetParameters": {
+									"employeesBronze": {
+										"container": {
+											"value": "@pipeline().parameters.container_bronze",
+											"type": "Expression"
+										},
+										"directory": {
+											"value": "@pipeline().parameters.directory_bronze",
+											"type": "Expression"
+										},
+										"file_name": "hired_employees.xlsx",
+										"sheet_name": "hired_employees"
+									},
+									"departmentsBronze": {
+										"container": {
+											"value": "@pipeline().parameters.container_bronze",
+											"type": "Expression"
+										},
+										"directory": {
+											"value": "@pipeline().parameters.directory_bronze",
+											"type": "Expression"
+										},
+										"file_name": "departments.xlsx",
+										"sheet_name": "departments"
+									},
+									"jobsBronze": {
+										"container": {
+											"value": "@pipeline().parameters.container_bronze",
+											"type": "Expression"
+										},
+										"directory": {
+											"value": "@pipeline().parameters.directory_bronze",
+											"type": "Expression"
+										},
+										"file_name": "jobs.xlsx",
+										"sheet_name": "jobs"
+									},
+									"employeesSilver": {
+										"container": {
+											"value": "@pipeline().parameters.container_silver",
+											"type": "Expression"
+										},
+										"directory": {
+											"value": "@{pipeline().parameters.directory_silver}/employees",
+											"type": "Expression"
+										}
+									},
+									"departmentsSilver": {
+										"container": {
+											"value": "@pipeline().parameters.container_silver",
+											"type": "Expression"
+										},
+										"directory": {
+											"value": "@{pipeline().parameters.directory_silver}/departments",
+											"type": "Expression"
+										}
+									},
+									"jobsSilver": {
+										"container": {
+											"value": "@pipeline().parameters.container_silver",
+											"type": "Expression"
+										},
+										"directory": {
+											"value": "@{pipeline().parameters.directory_silver}/jobs",
+											"type": "Expression"
+										}
+									}
+								}
+							},
+							"staging": {},
+							"compute": {
+								"coreCount": 8,
+								"computeType": "General"
+							},
+							"traceLevel": "Fine"
+						}
+					},
+					{
+						"name": "Historic Data Bronze to Silver_copy1",
+						"type": "ExecuteDataFlow",
+						"dependsOn": [
+							{
+								"activity": "Historic Data Bronze to Silver",
+								"dependencyConditions": [
+									"Succeeded"
+								]
+							}
+						],
+						"policy": {
+							"timeout": "0.12:00:00",
+							"retry": 0,
+							"retryIntervalInSeconds": 30,
+							"secureOutput": false,
+							"secureInput": false
+						},
+						"userProperties": [],
+						"typeProperties": {
+							"dataflow": {
+								"referenceName": "df_challenge_silver_to_gold",
+								"type": "DataFlowReference",
+								"parameters": {},
+								"datasetParameters": {
+									"employeesSilver": {
+										"container": {
+											"value": "@pipeline().parameters.container_silver",
+											"type": "Expression"
+										},
+										"directory": {
+											"value": "@{pipeline().parameters.directory_silver}/employees",
+											"type": "Expression"
+										}
+									},
+									"departmentsSilver": {
+										"container": {
+											"value": "@pipeline().parameters.container_silver",
+											"type": "Expression"
+										},
+										"directory": {
+											"value": "@{pipeline().parameters.directory_silver}/departments",
+											"type": "Expression"
+										}
+									},
+									"jobsSilver": {
+										"container": {
+											"value": "@pipeline().parameters.container_silver",
+											"type": "Expression"
+										},
+										"directory": {
+											"value": "@{pipeline().parameters.directory_silver}/jobs",
+											"type": "Expression"
+										}
+									},
+									"employeesGold": {
+										"container": {
+											"value": "@pipeline().parameters.container_gold",
+											"type": "Expression"
+										},
+										"directory": {
+											"value": "@{pipeline().parameters.directory_gold}/employees",
+											"type": "Expression"
+										}
+									},
+									"departmentsGold": {
+										"container": {
+											"value": "@pipeline().parameters.container_gold",
+											"type": "Expression"
+										},
+										"directory": {
+											"value": "@{pipeline().parameters.directory_gold}/departments",
+											"type": "Expression"
+										}
+									},
+									"jobsGold": {
+										"container": {
+											"value": "@pipeline().parameters.container_gold",
+											"type": "Expression"
+										},
+										"directory": {
+											"value": "@{pipeline().parameters.directory_gold}/jobs",
+											"type": "Expression"
+										}
+									}
+								}
+							},
+							"staging": {},
+							"compute": {
+								"coreCount": 8,
+								"computeType": "General"
+							},
+							"traceLevel": "Fine"
+						}
+					},
+					{
+						"name": "Historic Data Gold to DB",
+						"type": "ExecutePipeline",
+						"dependsOn": [
+							{
+								"activity": "Historic Data Bronze to Silver_copy1",
+								"dependencyConditions": [
+									"Succeeded"
+								]
+							}
+						],
+						"userProperties": [],
+						"typeProperties": {
+							"pipeline": {
+								"referenceName": "pl_load_gold_to_db",
+								"type": "PipelineReference"
+							},
+							"waitOnCompletion": true,
+							"parameters": {}
+						}
+					}
+				],
+				"policy": {
+					"elapsedTimeMetric": {},
+					"cancelAfter": {}
+				},
+				"parameters": {
+					"container_bronze": {
+						"type": "string",
+						"defaultValue": "bronze"
+					},
+					"container_silver": {
+						"type": "string",
+						"defaultValue": "silver"
+					},
+					"container_gold": {
+						"type": "string",
+						"defaultValue": "gold"
+					},
+					"directory_bronze": {
+						"type": "string",
+						"defaultValue": "challenge"
+					},
+					"directory_silver": {
+						"type": "string",
+						"defaultValue": "challenge"
+					},
+					"directory_gold": {
+						"type": "string",
+						"defaultValue": "challenge"
+					}
+				},
+				"folder": {
+					"name": "LOAD_HISTORIC_DATA"
+				},
+				"annotations": []
+			},
+			"dependsOn": [
+				"[concat(variables('workspaceId'), '/dataflows/df_challenge_bronze_to_silver')]",
+				"[concat(variables('workspaceId'), '/dataflows/df_challenge_silver_to_gold')]",
+				"[concat(variables('workspaceId'), '/pipelines/pl_load_gold_to_db')]"
+			]
+		},
+		{
+			"name": "[concat(parameters('workspaceName'), '/pl_restore_backup')]",
+			"type": "Microsoft.Synapse/workspaces/pipelines",
+			"apiVersion": "2019-06-01-preview",
+			"properties": {
+				"activities": [
+					{
+						"name": "Restore Backup",
+						"type": "Copy",
+						"dependsOn": [],
+						"policy": {
+							"timeout": "0.12:00:00",
+							"retry": 0,
+							"retryIntervalInSeconds": 30,
+							"secureOutput": false,
+							"secureInput": false
+						},
+						"userProperties": [],
+						"typeProperties": {
+							"source": {
+								"type": "AvroSource",
+								"storeSettings": {
+									"type": "AzureBlobFSReadSettings",
+									"recursive": true,
+									"enablePartitionDiscovery": false
+								}
+							},
+							"sink": {
+								"type": "AzureSqlSink",
+								"writeBehavior": "insert",
+								"sqlWriterUseTableLock": false,
+								"disableMetricsCollection": false
+							},
+							"enableStaging": false,
+							"translator": {
+								"type": "TabularTranslator",
+								"typeConversion": true,
+								"typeConversionSettings": {
+									"allowDataTruncation": true,
+									"treatBooleanAsNumber": false
+								}
+							}
+						},
+						"inputs": [
+							{
+								"referenceName": "ds_adls_avro",
+								"type": "DatasetReference",
+								"parameters": {
+									"container": "backups-azure-sql",
+									"directory": {
+										"value": "@pipeline().parameters.table",
+										"type": "Expression"
+									},
+									"file": {
+										"value": "@pipeline().parameters.backup_file",
+										"type": "Expression"
+									}
+								}
+							}
+						],
+						"outputs": [
+							{
+								"referenceName": "ds_sql_onb_demo",
+								"type": "DatasetReference",
+								"parameters": {
+									"schema": "challenge",
+									"table": {
+										"value": "@pipeline().parameters.table",
+										"type": "Expression"
+									}
+								}
+							}
+						]
+					}
+				],
+				"policy": {
+					"elapsedTimeMetric": {},
+					"cancelAfter": {}
+				},
+				"parameters": {
+					"table": {
+						"type": "string"
+					},
+					"backup_file": {
+						"type": "string"
+					}
+				},
+				"folder": {
+					"name": "BACKUPS_MANAGER/RESTORE_BACKUPS"
+				},
+				"annotations": []
+			},
+			"dependsOn": [
+				"[concat(variables('workspaceId'), '/datasets/ds_adls_avro')]",
+				"[concat(variables('workspaceId'), '/datasets/ds_sql_onb_demo')]"
+			]
+		},
+		{
+			"name": "[concat(parameters('workspaceName'), '/ds_adls_avro')]",
+			"type": "Microsoft.Synapse/workspaces/datasets",
+			"apiVersion": "2019-06-01-preview",
+			"properties": {
+				"linkedServiceName": {
+					"referenceName": "onb-demo-synapse-analytics-WorkspaceDefaultStorage",
+					"type": "LinkedServiceReference"
+				},
+				"parameters": {
+					"container": {
+						"type": "string"
+					},
+					"directory": {
+						"type": "string"
+					},
+					"file": {
+						"type": "string"
+					}
+				},
+				"annotations": [],
+				"type": "Avro",
+				"typeProperties": {
+					"location": {
+						"type": "AzureBlobFSLocation",
+						"fileName": {
+							"value": "@dataset().file",
+							"type": "Expression"
+						},
+						"folderPath": {
+							"value": "@dataset().directory",
+							"type": "Expression"
+						},
+						"fileSystem": {
+							"value": "@dataset().container",
+							"type": "Expression"
+						}
+					}
+				},
+				"schema": {}
+			},
+			"dependsOn": [
+				"[concat(variables('workspaceId'), '/linkedServices/onb-demo-synapse-analytics-WorkspaceDefaultStorage')]"
+			]
+		},
+		{
+			"name": "[concat(parameters('workspaceName'), '/ds_adls_parquet')]",
+			"type": "Microsoft.Synapse/workspaces/datasets",
+			"apiVersion": "2019-06-01-preview",
+			"properties": {
+				"linkedServiceName": {
+					"referenceName": "onb-demo-synapse-analytics-WorkspaceDefaultStorage",
+					"type": "LinkedServiceReference"
+				},
+				"parameters": {
+					"container": {
+						"type": "string"
+					},
+					"directory": {
+						"type": "string"
+					}
+				},
+				"annotations": [],
+				"type": "Parquet",
+				"typeProperties": {
+					"location": {
+						"type": "AzureBlobFSLocation",
+						"folderPath": {
+							"value": "@dataset().directory",
+							"type": "Expression"
+						},
+						"fileSystem": {
+							"value": "@dataset().container",
+							"type": "Expression"
+						}
+					},
+					"compressionCodec": "snappy"
+				},
+				"schema": []
+			},
+			"dependsOn": [
+				"[concat(variables('workspaceId'), '/linkedServices/onb-demo-synapse-analytics-WorkspaceDefaultStorage')]"
+			]
+		},
+		{
+			"name": "[concat(parameters('workspaceName'), '/ds_adls_xlsx')]",
+			"type": "Microsoft.Synapse/workspaces/datasets",
+			"apiVersion": "2019-06-01-preview",
+			"properties": {
+				"linkedServiceName": {
+					"referenceName": "onb-demo-synapse-analytics-WorkspaceDefaultStorage",
+					"type": "LinkedServiceReference"
+				},
+				"parameters": {
+					"container": {
+						"type": "string"
+					},
+					"directory": {
+						"type": "string"
+					},
+					"file_name": {
+						"type": "string"
+					},
+					"sheet_name": {
+						"type": "string"
+					}
+				},
+				"annotations": [],
+				"type": "Excel",
+				"typeProperties": {
+					"sheetName": {
+						"value": "@dataset().sheet_name",
+						"type": "Expression"
+					},
+					"location": {
+						"type": "AzureBlobFSLocation",
+						"fileName": {
+							"value": "@dataset().file_name",
+							"type": "Expression"
+						},
+						"folderPath": {
+							"value": "@dataset().directory",
+							"type": "Expression"
+						},
+						"fileSystem": {
+							"value": "@dataset().container",
+							"type": "Expression"
+						}
+					}
+				},
+				"schema": []
+			},
+			"dependsOn": [
+				"[concat(variables('workspaceId'), '/linkedServices/onb-demo-synapse-analytics-WorkspaceDefaultStorage')]"
+			]
+		},
+		{
+			"name": "[concat(parameters('workspaceName'), '/ds_sql_onb_demo')]",
+			"type": "Microsoft.Synapse/workspaces/datasets",
+			"apiVersion": "2019-06-01-preview",
+			"properties": {
+				"linkedServiceName": {
+					"referenceName": "ls_db_sql_onb_demo",
+					"type": "LinkedServiceReference"
+				},
+				"parameters": {
+					"schema": {
+						"type": "string",
+						"defaultValue": "challenge"
+					},
+					"table": {
+						"type": "string"
+					}
+				},
+				"annotations": [],
+				"type": "AzureSqlTable",
+				"schema": [],
+				"typeProperties": {
+					"schema": {
+						"value": "@dataset().schema",
+						"type": "Expression"
+					},
+					"table": {
+						"value": "@dataset().table",
+						"type": "Expression"
+					}
+				}
+			},
+			"dependsOn": [
+				"[concat(variables('workspaceId'), '/linkedServices/ls_db_sql_onb_demo')]"
+			]
+		},
+		{
+			"name": "[concat(parameters('workspaceName'), '/ls_db_sql_onb_demo')]",
+			"type": "Microsoft.Synapse/workspaces/linkedServices",
+			"apiVersion": "2019-06-01-preview",
+			"properties": {
+				"annotations": [],
+				"type": "AzureSqlDatabase",
+				"typeProperties": {
+					"connectionString": "[parameters('ls_db_sql_onb_demo_connectionString')]"
+				},
+				"connectVia": {
+					"referenceName": "AutoResolveIntegrationRuntime",
+					"type": "IntegrationRuntimeReference"
+				}
+			},
+			"dependsOn": [
+				"[concat(variables('workspaceId'), '/integrationRuntimes/AutoResolveIntegrationRuntime')]"
+			]
+		},
+		{
+			"name": "[concat(parameters('workspaceName'), '/ls_kv_demo_onb')]",
+			"type": "Microsoft.Synapse/workspaces/linkedServices",
+			"apiVersion": "2019-06-01-preview",
+			"properties": {
+				"description": "Key vault connection",
+				"annotations": [],
+				"type": "AzureKeyVault",
+				"typeProperties": {
+					"baseUrl": "[parameters('ls_kv_demo_onb_properties_typeProperties_baseUrl')]"
+				}
+			},
+			"dependsOn": []
+		},
+		{
+			"name": "[concat(parameters('workspaceName'), '/onb-demo-synapse-analytics-WorkspaceDefaultSqlServer')]",
+			"type": "Microsoft.Synapse/workspaces/linkedServices",
+			"apiVersion": "2019-06-01-preview",
+			"properties": {
+				"parameters": {
+					"DBName": {
+						"type": "String"
+					}
+				},
+				"annotations": [],
+				"type": "AzureSqlDW",
+				"typeProperties": {
+					"connectionString": "[parameters('onb-demo-synapse-analytics-WorkspaceDefaultSqlServer_connectionString')]"
+				},
+				"connectVia": {
+					"referenceName": "AutoResolveIntegrationRuntime",
+					"type": "IntegrationRuntimeReference"
+				}
+			},
+			"dependsOn": [
+				"[concat(variables('workspaceId'), '/integrationRuntimes/AutoResolveIntegrationRuntime')]"
+			]
+		},
+		{
+			"name": "[concat(parameters('workspaceName'), '/onb-demo-synapse-analytics-WorkspaceDefaultStorage')]",
+			"type": "Microsoft.Synapse/workspaces/linkedServices",
+			"apiVersion": "2019-06-01-preview",
+			"properties": {
+				"annotations": [],
+				"type": "AzureBlobFS",
+				"typeProperties": {
+					"url": "[parameters('onb-demo-synapse-analytics-WorkspaceDefaultStorage_properties_typeProperties_url')]"
+				},
+				"connectVia": {
+					"referenceName": "AutoResolveIntegrationRuntime",
+					"type": "IntegrationRuntimeReference"
+				}
+			},
+			"dependsOn": [
+				"[concat(variables('workspaceId'), '/integrationRuntimes/AutoResolveIntegrationRuntime')]"
+			]
+		},
+		{
+			"name": "[concat(parameters('workspaceName'), '/AutoResolveIntegrationRuntime')]",
+			"type": "Microsoft.Synapse/workspaces/integrationRuntimes",
+			"apiVersion": "2019-06-01-preview",
+			"properties": {
+				"type": "Managed",
+				"typeProperties": {
+					"computeProperties": {
+						"location": "AutoResolve",
+						"dataFlowProperties": {
+							"computeType": "General",
+							"coreCount": 8,
+							"timeToLive": 0
+						}
+					}
+				}
+			},
+			"dependsOn": []
+		},
+		{
+			"name": "[concat(parameters('workspaceName'), '/df_challenge_bronze_to_silver')]",
+			"type": "Microsoft.Synapse/workspaces/dataflows",
+			"apiVersion": "2019-06-01-preview",
+			"properties": {
+				"type": "MappingDataFlow",
+				"typeProperties": {
+					"sources": [
+						{
+							"dataset": {
+								"referenceName": "ds_adls_xlsx",
+								"type": "DatasetReference"
+							},
+							"name": "employeesBronze"
+						},
+						{
+							"dataset": {
+								"referenceName": "ds_adls_xlsx",
+								"type": "DatasetReference"
+							},
+							"name": "departmentsBronze"
+						},
+						{
+							"dataset": {
+								"referenceName": "ds_adls_xlsx",
+								"type": "DatasetReference"
+							},
+							"name": "jobsBronze"
+						}
+					],
+					"sinks": [
+						{
+							"dataset": {
+								"referenceName": "ds_adls_parquet",
+								"type": "DatasetReference"
+							},
+							"name": "employeesSilver",
+							"rejectedDataLinkedService": {
+								"referenceName": "onb-demo-synapse-analytics-WorkspaceDefaultStorage",
+								"type": "LinkedServiceReference"
+							}
+						},
+						{
+							"dataset": {
+								"referenceName": "ds_adls_parquet",
+								"type": "DatasetReference"
+							},
+							"name": "departmentsSilver",
+							"rejectedDataLinkedService": {
+								"referenceName": "onb-demo-synapse-analytics-WorkspaceDefaultStorage",
+								"type": "LinkedServiceReference"
+							}
+						},
+						{
+							"dataset": {
+								"referenceName": "ds_adls_parquet",
+								"type": "DatasetReference"
+							},
+							"name": "jobsSilver",
+							"rejectedDataLinkedService": {
+								"referenceName": "onb-demo-synapse-analytics-WorkspaceDefaultStorage",
+								"type": "LinkedServiceReference"
+							}
+						}
+					],
+					"transformations": [
+						{
+							"name": "SetColumnNamesEmployees"
+						},
+						{
+							"name": "SetNullValuesEmployees"
+						},
+						{
+							"name": "SetColumnNamesDepartments"
+						},
+						{
+							"name": "SetNullValuesDepartments"
+						},
+						{
+							"name": "SetColumnNamesJobs"
+						},
+						{
+							"name": "SetNullValuesJobs"
+						}
+					],
+					"scriptLines": [
+						"source(output(",
+						"          {_col0_} as integer,",
+						"          {_col1_} as string,",
+						"          {_col2_} as string,",
+						"          {_col3_} as integer,",
+						"          {_col4_} as integer",
+						"     ),",
+						"     allowSchemaDrift: true,",
+						"     validateSchema: false,",
+						"     ignoreNoFilesFound: false) ~> employeesBronze",
+						"source(output(",
+						"          {_col0_} as integer,",
+						"          {_col1_} as string",
+						"     ),",
+						"     allowSchemaDrift: true,",
+						"     validateSchema: false,",
+						"     ignoreNoFilesFound: false) ~> departmentsBronze",
+						"source(output(",
+						"          {_col0_} as integer,",
+						"          {_col1_} as string",
+						"     ),",
+						"     allowSchemaDrift: true,",
+						"     validateSchema: false,",
+						"     ignoreNoFilesFound: false) ~> jobsBronze",
+						"employeesBronze select(mapColumn(",
+						"          id = {_col0_},",
+						"          name = {_col1_},",
+						"          datetime = {_col2_},",
+						"          department_id = {_col3_},",
+						"          job_id = {_col4_}",
+						"     ),",
+						"     skipDuplicateMapInputs: true,",
+						"     skipDuplicateMapOutputs: true) ~> SetColumnNamesEmployees",
+						"SetColumnNamesEmployees derive(name = coalesce(name, 'NOT_DEFINED'),",
+						"          datetime = coalesce(datetime, '0000-00-00T00:00:00Z'),",
+						"          department_id = coalesce(department_id, -1),",
+						"          job_id = coalesce(job_id, -1)) ~> SetNullValuesEmployees",
+						"departmentsBronze select(mapColumn(",
+						"          id = {_col0_},",
+						"          department = {_col1_}",
+						"     ),",
+						"     skipDuplicateMapInputs: true,",
+						"     skipDuplicateMapOutputs: true) ~> SetColumnNamesDepartments",
+						"SetColumnNamesDepartments derive(department = coalesce(department, 'NOT_DEFINED')) ~> SetNullValuesDepartments",
+						"jobsBronze select(mapColumn(",
+						"          id = {_col0_},",
+						"          job = {_col1_}",
+						"     ),",
+						"     skipDuplicateMapInputs: true,",
+						"     skipDuplicateMapOutputs: true) ~> SetColumnNamesJobs",
+						"SetColumnNamesJobs derive(job = coalesce(job, 'NOT_DEFINED')) ~> SetNullValuesJobs",
+						"SetNullValuesEmployees sink(allowSchemaDrift: true,",
+						"     validateSchema: false,",
+						"     format: 'parquet',",
+						"     truncate: true,",
+						"     umask: 0022,",
+						"     preCommands: [],",
+						"     postCommands: [],",
+						"     skipDuplicateMapInputs: true,",
+						"     skipDuplicateMapOutputs: true) ~> employeesSilver",
+						"SetNullValuesDepartments sink(allowSchemaDrift: true,",
+						"     validateSchema: false,",
+						"     format: 'parquet',",
+						"     truncate: true,",
+						"     umask: 0022,",
+						"     preCommands: [],",
+						"     postCommands: [],",
+						"     skipDuplicateMapInputs: true,",
+						"     skipDuplicateMapOutputs: true) ~> departmentsSilver",
+						"SetNullValuesJobs sink(allowSchemaDrift: true,",
+						"     validateSchema: false,",
+						"     format: 'parquet',",
+						"     truncate: true,",
+						"     umask: 0022,",
+						"     preCommands: [],",
+						"     postCommands: [],",
+						"     skipDuplicateMapInputs: true,",
+						"     skipDuplicateMapOutputs: true) ~> jobsSilver"
+					]
+				}
+			},
+			"dependsOn": [
+				"[concat(variables('workspaceId'), '/datasets/ds_adls_xlsx')]",
+				"[concat(variables('workspaceId'), '/datasets/ds_adls_parquet')]",
+				"[concat(variables('workspaceId'), '/linkedServices/onb-demo-synapse-analytics-WorkspaceDefaultStorage')]"
+			]
+		},
+		{
+			"name": "[concat(parameters('workspaceName'), '/df_challenge_silver_to_gold')]",
+			"type": "Microsoft.Synapse/workspaces/dataflows",
+			"apiVersion": "2019-06-01-preview",
+			"properties": {
+				"type": "MappingDataFlow",
+				"typeProperties": {
+					"sources": [
+						{
+							"dataset": {
+								"referenceName": "ds_adls_parquet",
+								"type": "DatasetReference"
+							},
+							"name": "employeesSilver"
+						},
+						{
+							"dataset": {
+								"referenceName": "ds_adls_parquet",
+								"type": "DatasetReference"
+							},
+							"name": "departmentsSilver"
+						},
+						{
+							"dataset": {
+								"referenceName": "ds_adls_parquet",
+								"type": "DatasetReference"
+							},
+							"name": "jobsSilver"
+						}
+					],
+					"sinks": [
+						{
+							"dataset": {
+								"referenceName": "ds_adls_parquet",
+								"type": "DatasetReference"
+							},
+							"name": "employeesGold",
+							"rejectedDataLinkedService": {
+								"referenceName": "onb-demo-synapse-analytics-WorkspaceDefaultStorage",
+								"type": "LinkedServiceReference"
+							}
+						},
+						{
+							"dataset": {
+								"referenceName": "ds_adls_parquet",
+								"type": "DatasetReference"
+							},
+							"name": "departmentsGold",
+							"rejectedDataLinkedService": {
+								"referenceName": "onb-demo-synapse-analytics-WorkspaceDefaultStorage",
+								"type": "LinkedServiceReference"
+							}
+						},
+						{
+							"dataset": {
+								"referenceName": "ds_adls_parquet",
+								"type": "DatasetReference"
+							},
+							"name": "jobsGold",
+							"rejectedDataLinkedService": {
+								"referenceName": "onb-demo-synapse-analytics-WorkspaceDefaultStorage",
+								"type": "LinkedServiceReference"
+							}
+						}
+					],
+					"transformations": [
+						{
+							"name": "SetDateKey"
+						},
+						{
+							"name": "SelectColumns"
+						}
+					],
+					"scriptLines": [
+						"source(output(",
+						"          id as integer,",
+						"          name as string,",
+						"          datetime as string,",
+						"          department_id as integer,",
+						"          job_id as integer",
+						"     ),",
+						"     allowSchemaDrift: true,",
+						"     validateSchema: false,",
+						"     ignoreNoFilesFound: false,",
+						"     format: 'parquet') ~> employeesSilver",
+						"source(output(",
+						"          id as integer,",
+						"          department as string",
+						"     ),",
+						"     allowSchemaDrift: true,",
+						"     validateSchema: false,",
+						"     ignoreNoFilesFound: false,",
+						"     format: 'parquet') ~> departmentsSilver",
+						"source(output(",
+						"          id as integer,",
+						"          job as string",
+						"     ),",
+						"     allowSchemaDrift: true,",
+						"     validateSchema: false,",
+						"     ignoreNoFilesFound: false,",
+						"     format: 'parquet') ~> jobsSilver",
+						"employeesSilver derive(date = replace((split(datetime, 'T')[1]), '-', ''),",
+						"          time = replace((split(datetime, 'T')[2]), 'Z', '')) ~> SetDateKey",
+						"SetDateKey select(mapColumn(",
+						"          id,",
+						"          name,",
+						"          department_id,",
+						"          job_id,",
+						"          date,",
+						"          time",
+						"     ),",
+						"     skipDuplicateMapInputs: true,",
+						"     skipDuplicateMapOutputs: true) ~> SelectColumns",
+						"SelectColumns sink(allowSchemaDrift: true,",
+						"     validateSchema: false,",
+						"     format: 'parquet',",
+						"     truncate: true,",
+						"     umask: 0022,",
+						"     preCommands: [],",
+						"     postCommands: [],",
+						"     skipDuplicateMapInputs: true,",
+						"     skipDuplicateMapOutputs: true) ~> employeesGold",
+						"departmentsSilver sink(allowSchemaDrift: true,",
+						"     validateSchema: false,",
+						"     format: 'parquet',",
+						"     truncate: true,",
+						"     umask: 0022,",
+						"     preCommands: [],",
+						"     postCommands: [],",
+						"     skipDuplicateMapInputs: true,",
+						"     skipDuplicateMapOutputs: true) ~> departmentsGold",
+						"jobsSilver sink(allowSchemaDrift: true,",
+						"     validateSchema: false,",
+						"     format: 'parquet',",
+						"     truncate: true,",
+						"     umask: 0022,",
+						"     preCommands: [],",
+						"     postCommands: [],",
+						"     skipDuplicateMapInputs: true,",
+						"     skipDuplicateMapOutputs: true) ~> jobsGold"
+					]
+				}
+			},
+			"dependsOn": [
+				"[concat(variables('workspaceId'), '/datasets/ds_adls_parquet')]",
+				"[concat(variables('workspaceId'), '/linkedServices/onb-demo-synapse-analytics-WorkspaceDefaultStorage')]"
+			]
+		},
+		{
+			"name": "[concat(parameters('workspaceName'), '/WorkspaceSystemIdentity')]",
+			"type": "Microsoft.Synapse/workspaces/credentials",
+			"apiVersion": "2019-06-01-preview",
+			"properties": {
+				"type": "ManagedIdentity",
+				"typeProperties": {}
+			},
+			"dependsOn": []
+		},
+		{
+			"name": "[concat(parameters('workspaceName'), '/nb_f0_ext_api_colombia')]",
+			"type": "Microsoft.Synapse/workspaces/notebooks",
+			"apiVersion": "2019-06-01-preview",
+			"properties": {
+				"nbformat": 4,
+				"nbformat_minor": 2,
+				"bigDataPool": {
+					"referenceName": "aspdemoonbsmall",
+					"type": "BigDataPoolReference"
+				},
+				"sessionProperties": {
+					"driverMemory": "28g",
+					"driverCores": 4,
+					"executorMemory": "28g",
+					"executorCores": 4,
+					"numExecutors": 1,
+					"runAsWorkspaceSystemIdentity": false,
+					"conf": {
+						"spark.dynamicAllocation.enabled": "true",
+						"spark.dynamicAllocation.minExecutors": "1",
+						"spark.dynamicAllocation.maxExecutors": "2",
+						"spark.autotune.trackingId": "7d4569bd-93b9-4ad6-a047-f2d7c3b9ae7d"
+					}
+				},
+				"metadata": {
+					"saveOutput": true,
+					"synapse_widget": {
+						"version": "0.1"
+					},
+					"enableDebugMode": false,
+					"kernelspec": {
+						"name": "synapse_pyspark",
+						"display_name": "Synapse PySpark"
+					},
+					"language_info": {
+						"name": "python"
+					},
+					"a365ComputeOptions": {
+						"id": "/subscriptions/fe40ac6c-4550-4635-9f63-a689d5e2023a/resourceGroups/rg_synapse_demo/providers/Microsoft.Synapse/workspaces/onb-demo-synapse-analytics/bigDataPools/aspdemoonbsmall",
+						"name": "aspdemoonbsmall",
+						"type": "Spark",
+						"endpoint": "https://onb-demo-synapse-analytics.dev.azuresynapse.net/livyApi/versions/2019-11-01-preview/sparkPools/aspdemoonbsmall",
+						"auth": {
+							"type": "AAD",
+							"authResource": "https://dev.azuresynapse.net",
+							"authHeader": null
+						},
+						"sparkVersion": "3.2",
+						"nodeCount": 3,
+						"cores": 4,
+						"memory": 28,
+						"extraHeader": null
+					},
+					"sessionKeepAliveTimeout": 30
+				},
+				"cells": [
+					{
+						"cell_type": "code",
+						"source": [
+							"import requests\r\n",
+							"import json\r\n",
+							"import pyspark\r\n",
+							"import fsspec\r\n",
+							"from pyspark.sql import SparkSession\r\n",
+							"from pyspark.sql.types import *\r\n",
+							"\r\n",
+							"\r\n",
+							"spark = SparkSession.builder.appName('spark_session_onb_demo').getOrCreate()"
+						],
+						"outputs": [],
+						"execution_count": 46
+					},
+					{
+						"cell_type": "code",
+						"metadata": {
+							"jupyter": {
+								"source_hidden": false,
+								"outputs_hidden": false
+							},
+							"nteract": {
+								"transient": {
+									"deleting": false
+								}
+							}
+						},
+						"source": [
+							"# PARAMETERS\r\n",
+							"\r\n",
+							"# Storage info\r\n",
+							"ls_adls_name = 'onb-demo-synapse-analytics-WorkspaceDefaultStorage'\r\n",
+							"account_name = 'adlsonbdemo'\r\n",
+							"\r\n",
+							"# Bronze Zone\r\n",
+							"container_bronze_name = 'bronze'\r\n",
+							"mount_bronze_zone = 'mnt_bronze'\r\n",
+							"\r\n",
+							"# Sesion info\r\n",
+							"jobId = mssparkutils.env.getJobId()\r\n",
+							"  \r\n",
+							"# mssparkutils.fs.mount(  \r\n",
+							"#     'abfss://%s@%s.dfs.core.windows.net/' % (container_bronze_name, account_name), #ADLS GEN 2 PATH  \r\n",
+							"#     '/%s' % (mount_bronze_zone), #Mount Point Name  \r\n",
+							"#     { \"linkedService\" : '%s' % (ls_adls_name)}  \r\n",
+							"# )\r\n",
+							"\r\n",
+							"#mssparkutils.fs.unmount(mount_landing_zone)"
+						],
+						"outputs": [],
+						"execution_count": 10
+					},
+					{
+						"cell_type": "code",
+						"metadata": {
+							"jupyter": {
+								"source_hidden": false,
+								"outputs_hidden": false
+							},
+							"nteract": {
+								"transient": {
+									"deleting": false
+								}
+							}
+						},
+						"source": [
+							"mssparkutils.fs.ls(\"synfs:/{}/{}/api/api-colombia/\".format(jobId, mount_bronze_zone)) \r\n",
+							"\r\n",
+							""
+						],
+						"outputs": [],
+						"execution_count": 34
+					},
+					{
+						"cell_type": "code",
+						"metadata": {
+							"jupyter": {
+								"source_hidden": false,
+								"outputs_hidden": false
+							},
+							"nteract": {
+								"transient": {
+									"deleting": false
+								}
+							}
+						},
+						"source": [
+							"local_file_name = 'TouristicAttraction.json'\r\n",
+							"relative_path = 'api/api-colombia/TouristicAttraction'\r\n",
+							"\r\n",
+							"adls_bronze_path = \"abfss://%s@%s.dfs.core.windows.net/%s/\" % (container_bronze_name, account_name, relative_path)\r\n",
+							"\r\n",
+							"#bronze_load_relative_path = \"synfs:/{}/{}/{}/{}\".format(jobId, mount_bronze_zone, 'api/api-colombia/TouristicAttraction', 'TouristicAttraction.json')\r\n",
+							"\r\n",
+							"json_tourist_attraction = requests.get('https://api-colombia.com/api/v1/TouristicAttraction').text\r\n",
+							"\r\n",
+							"with open (local_file_name, mode='w') as f:\r\n",
+							"    f.write(json_tourist_attraction)\r\n",
+							"    f.close\r\n",
+							"\r\n",
+							"fs = fsspec.filesystem('abfss')\r\n",
+							"\r\n",
+							"print(fs.exists(adls_bronze_path+'/{}'.format(local_file_name)))\r\n",
+							"\r\n",
+							"\r\n",
+							"\r\n",
+							"#fs.upload(local_file_name, adls_bronze_path)"
+						],
+						"outputs": [],
+						"execution_count": 65
+					}
+				]
+			},
+			"dependsOn": []
+		},
+		{
+			"name": "[concat(parameters('workspaceName'), '/aspdemoonbsmall')]",
+			"type": "Microsoft.Synapse/workspaces/bigDataPools",
+			"apiVersion": "2019-06-01-preview",
+			"properties": {
+				"autoPause": {
+					"enabled": true,
+					"delayInMinutes": 15
+				},
+				"autoScale": {
+					"enabled": false,
+					"maxNodeCount": 0,
+					"minNodeCount": 0
+				},
+				"nodeCount": 3,
+				"nodeSize": "Small",
+				"nodeSizeFamily": "MemoryOptimized",
+				"sparkVersion": "3.2",
+				"isComputeIsolationEnabled": false,
+				"sessionLevelPackagesEnabled": true,
+				"annotations": []
+			},
+			"dependsOn": [],
+			"location": "eastus2"
+		}
+	]
+}
