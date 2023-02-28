@@ -365,6 +365,9 @@
 				"defaultValue": "challenge"
 			}
 		},
+		"folder": {
+			"name": "LOAD_HISTORIC_DATA"
+		},
 		"annotations": []
 	}
 }

@@ -1,5 +1,5 @@
 {
-	"name": "mstr_historic_challenge",
+	"name": "pl_mstr_historic_challenge",
 	"properties": {
 		"activities": [
 			{
@@ -233,6 +233,9 @@
 				"type": "string",
 				"defaultValue": "challenge"
 			}
+		},
+		"folder": {
+			"name": "LOAD_HISTORIC_DATA"
 		},
 		"annotations": []
 	}
