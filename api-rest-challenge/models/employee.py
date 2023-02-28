@@ -14,3 +14,24 @@ Employees = Table(
     Column('job_id', Integer),
     schema='challenge'
 )
+
+Employees_by_quarter = Table(
+    'employees_hired_by_quarter',
+    meta,
+    Column('department', String(50)),
+    Column('job', String(50)),
+    Column('Q1', Integer),
+    Column('Q2', Integer),
+    Column('Q3', Integer),
+    Column('Q4', Integer),
+    schema='challenge'
+)
+
+Employees_by_department = Table(
+    'employees_hired_by_department',
+    meta,
+    Column('id', Integer),
+    Column('department', String(50)),
+    Column('hired', Integer),
+    schema='challenge'
+)
