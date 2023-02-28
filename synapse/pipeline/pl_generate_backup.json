@@ -80,6 +80,9 @@
 				"defaultValue": "avro"
 			}
 		},
+		"folder": {
+			"name": "BACKUPS_MANAGER"
+		},
 		"annotations": []
 	}
 }
