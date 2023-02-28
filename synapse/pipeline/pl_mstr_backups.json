@@ -1,0 +1,134 @@
+{
+	"name": "pl_mstr_backups",
+	"properties": {
+		"activities": [
+			{
+				"name": "Backup departments",
+				"type": "ExecutePipeline",
+				"dependsOn": [],
+				"userProperties": [],
+				"typeProperties": {
+					"pipeline": {
+						"referenceName": "pl_generate_backup",
+						"type": "PipelineReference"
+					},
+					"waitOnCompletion": true,
+					"parameters": {
+						"table": "departments",
+						"bk_file_extension": {
+							"value": "@pipeline().parameters.file_format",
+							"type": "Expression"
+						}
+					}
+				}
+			},
+			{
+				"name": "Backup employees",
+				"type": "ExecutePipeline",
+				"dependsOn": [],
+				"userProperties": [],
+				"typeProperties": {
+					"pipeline": {
+						"referenceName": "pl_generate_backup",
+						"type": "PipelineReference"
+					},
+					"waitOnCompletion": true,
+					"parameters": {
+						"table": "employees",
+						"bk_file_extension": {
+							"value": "@pipeline().parameters.file_format",
+							"type": "Expression"
+						}
+					}
+				}
+			},
+			{
+				"name": "Backup jobs",
+				"type": "ExecutePipeline",
+				"dependsOn": [],
+				"userProperties": [],
+				"typeProperties": {
+					"pipeline": {
+						"referenceName": "pl_generate_backup",
+						"type": "PipelineReference"
+					},
+					"waitOnCompletion": true,
+					"parameters": {
+						"table": "jobs",
+						"bk_file_extension": {
+							"value": "@pipeline().parameters.file_format",
+							"type": "Expression"
+						}
+					}
+				}
+			},
+			{
+				"name": "Backup logs",
+				"type": "ExecutePipeline",
+				"dependsOn": [],
+				"userProperties": [],
+				"typeProperties": {
+					"pipeline": {
+						"referenceName": "pl_generate_backup",
+						"type": "PipelineReference"
+					},
+					"waitOnCompletion": true,
+					"parameters": {
+						"table": "logs",
+						"bk_file_extension": {
+							"value": "@pipeline().parameters.file_format",
+							"type": "Expression"
+						}
+					}
+				}
+			},
+			{
+				"name": "Backup employees_hired_by_department",
+				"type": "ExecutePipeline",
+				"dependsOn": [],
+				"userProperties": [],
+				"typeProperties": {
+					"pipeline": {
+						"referenceName": "pl_generate_backup",
+						"type": "PipelineReference"
+					},
+					"waitOnCompletion": true,
+					"parameters": {
+						"table": "employees_hired_by_department",
+						"bk_file_extension": {
+							"value": "@pipeline().parameters.file_format",
+							"type": "Expression"
+						}
+					}
+				}
+			},
+			{
+				"name": "Backup employees_hired_by_quarter",
+				"type": "ExecutePipeline",
+				"dependsOn": [],
+				"userProperties": [],
+				"typeProperties": {
+					"pipeline": {
+						"referenceName": "pl_generate_backup",
+						"type": "PipelineReference"
+					},
+					"waitOnCompletion": true,
+					"parameters": {
+						"table": "employees_hired_by_quarter",
+						"bk_file_extension": {
+							"value": "@pipeline().parameters.file_format",
+							"type": "Expression"
+						}
+					}
+				}
+			}
+		],
+		"parameters": {
+			"file_format": {
+				"type": "string",
+				"defaultValue": "avro"
+			}
+		},
+		"annotations": []
+	}
+}
