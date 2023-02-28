@@ -1,10 +1,10 @@
 from fastapi import APIRouter
 from config.db import conn
-from models.employee import Employees
+from models.employee import Employees, Employees_by_quarter, Employees_by_department
 from models.department import Departments
 from models.job import Jobs
 from models.log import Logs
-from schemas.employee import Employee
+from schemas.employee import Employee, Employee_by_quarter, Employee_by_department
 
 employee = APIRouter()
 
@@ -75,3 +75,21 @@ def add_employee(employee: list[Employee]):
         response = [{"message":"Only can process less than 1000 rows"}]
 
     return response
+
+@employee.get('/employees_by_quarter',response_model=list[Employee_by_quarter], tags=["employees"])
+def get_employees_by_quarter():
+    select_employees_by_quarter = conn.execute(Employees_by_quarter.select().order_by(Employees_by_quarter.c.department.asc(),Employees_by_quarter.c.job.asc()))
+    select_employees_by_quarter_as_dict = select_employees_by_quarter.mappings().fetchall()
+
+    select_employees_by_quarter.close()
+
+    return select_employees_by_quarter_as_dict
+
+@employee.get('/employees_by_department',response_model=list[Employee_by_department], tags=["employees"])
+def get_employees_by_department():
+    select_employees_by_department = conn.execute(Employees_by_department.select().order_by(Employees_by_department.c.hired.desc()))
+    select_employees_by_department_as_dict = select_employees_by_department.mappings().fetchall()
+
+    select_employees_by_department.close()
+
+    return select_employees_by_department_as_dict
