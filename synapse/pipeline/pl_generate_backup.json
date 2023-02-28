@@ -81,7 +81,7 @@
 			}
 		},
 		"folder": {
-			"name": "BACKUPS_MANAGER"
+			"name": "BACKUPS_MANAGER/GENERATE_BACKUPS"
 		},
 		"annotations": []
 	}
